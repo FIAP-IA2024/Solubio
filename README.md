@@ -144,11 +144,11 @@ Com uma taxa de câmbio de 5,6 (USD para BRL), os cálculos são feitos da segui
 
 * _Cálculo do Custo das Conversas_:
     * `Custo = Número de Conversas * $0,008 * Taxa de Câmbio`
-    * Aplicando os valores: 5000 \text{ conversas} \times 0,008 \times 5,6 = R$224,00
+    * Aplicando os valores: 5000 conversas * 0,008 * 5,6 = R$224,00
     
 * Cálculo do Custo das Mensagens:
-    * Custo = Número Total de Mensagens * $0,005 * Taxa de Câmbio
-    * Aplicando os valores: 50000 \text{ mensagens} \times 0,005 \times 5,6 = R$1400,00
+    * `Custo = Número Total de Mensagens * $0,005 * Taxa de Câmbio`
+    * Aplicando os valores: 50000 mensagens * 0,005 * 5,6 = R$1400,00
     
 * Total Twilio: R$224,00 + R$1400,00 = R$1624,00
 
