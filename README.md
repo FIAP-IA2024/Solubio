@@ -1,5 +1,7 @@
 # Solução de Chatbot Inteligente - Solubio
 
+![Desenho da Arquitetura da Solução](Arquitetura_Chatbot_v1.png)
+
 ## Sobre a Arquitetura
 
 A arquitetura que estamos propondo para o desafio visa atender e superar os requisitos e objetivos apresentados, por meio de uma combinação estratégica de tecnologias modernas, inovadoras e que possam fornecer um equilíbrio ideal entre desempenho, funcionalidades e custo, para que seja uma solução sustentável economicamente, permitindo com que a Solubio seja bem sucedida na sua escalada para o sucesso digital junto aos seus clientes.
@@ -25,63 +27,131 @@ Tendo isso posto, elencamos aqui os objetivos apresentados pela Solubio e o noss
 
 ## Premissas Importantes
 
-...
-* Integrações via API REST (abstração de sistemas de linha de negócio Solubio)
-* Responsabilidades por contratação de serviços em Nuvem (AWS, Twilio, etc)
-...
+1. Como até o momento não existe uma clara definição sobre como os dados e serviços serão efetivamente disponibilizados para consumo do Chatbot, estamos considerando que serão todos disponibilizados via uma API REST, acessível via Internet. Esta API poderá ser simulada durante o desenvolvimento da solução, em ambiente acadêmico, mas tenhamos em mente que, caso a Solubio deseje colocar a solução em produção, este ponto precisará ser discutido.
 
+2. Nosso projeto, em ambiente acadêmico, utilizará ferramentas e tecnologias que podem ser diferentes das que eventualmente a Solubio decida utilizar em seu ambiente. Sendo assim, é importante mencionar que alterações no desenho da solução e estimativas de custos serão necessárias em uma eventual transição para o ambiente da Solubio.
+
+3. Como não foram disponibilizadas informações precisas de volumetria, estamos assumindo um volume médio de 200 mil mensagens por mês, sendo 100mil inbound e 100mil outbound.
+
+4. Para efeitos de cálculos de estimativas de custos, foram considerados os valores publicamente listados em cada fornecedor, mas estes valores tendem a reduzir bastante em negociações contratuais ligadas a compromissos de consumo.
 
 
 ## Elementos
 
 ### Twilio e API WhatsApp
 
-...
+A [Twilio](https://www.twilio.com) é uma solução em nuvem que permite com que aplicações se integrem em canais de comunicação como WhatsApp, SMS, Voz e e-mail através de APIs REST, abstraindo toda a complexidade por trás de cada um desses canais, ao tempo que fornece uma camada de integração simplificada e padronizada para a troca de mensagens com usuários. Essa abstração é essencial para que possamos concentrar nossos esforços nos requisitos de negócio e criar a melhor solução de Chatbot possível, sem se preocupar com detalhes de implementação dos canais digitais.
 
+Optamos por utilizar Twilio porque:
+
+1. É a maneira mais simples e confiável de integrar uma aplicação com a API de WhatsApp da Meta. A Twilio é o maior broker oficial de WhatsApp do mundo, sendo utilizada por milhares de empresas de todos os portes.
+2. Possui um modelo comercial baseado em consumo ("Pay as you go"), possibilitando uma previsibilidade de custos muito maior do que outras soluções baseadas em modelos como "pacotes de mensagens" ou horários.
+3. Permite adicionar outros canais no Chatbot, como Chat (na web ou app), SMS/MMS, Google RCS, Voz, entre outros. Isso torna a solução muito mais "future-proof", garantindo flexibilidade e um excelente alinhamento entra a solução e a estratégia de escalada digital da Solubio.
 
 
 ### Nuvem AWS
 
-...
+Optamos por utilizar [Amazon Web Services](https://aws.amazon.com) por ser a solução de Nuvem com maior fatia de mercado atualmente, facilitando assim a busca por recursos especializados. Porém, a solução proposta pode ser adaptada para rodar em qualquer provedor Cloud, como Microsoft Azure ou Google Cloud.
+
+Uma das maiores vantagens de se utilizar uma solução de Cloud como a AWS é o fato de que os componentes essenciais de infraestrutura são todos gerenciados pela AWS, e possuem um modelo comercial baseado no consumo ("Pay as you go"), possibilitando que os custos de infraestrutura acompanhem a escala do projeto, sem que seja necessário altos investimentos iniciais ("upfront").
+
+Por mais que a Solubio não tenha posicionado o custo da solução como um dos objetivos do projeto, entendemos que a previsibilidade de custos é algo inerente de qualquer projeto moderno de tecnologia.
+
+Apesar de ser algo independente do desenho da solução, nossa recomendação para que haja maior aderência possível às leis de proteção de dados, como a LGPD, é que seja utilizada uma região AWS no Brasil. Adicionalmente, a fim de não implicar complexidades e custos adicionais nesse primeiro desenho da solução, optamos por ter todos os componentes AWS rodando em uma única região. Porém, futuramente é possível expandir a solução para múltiplas regiões, garantindo assim níveis altíssimos de disponibilidade para a solução.
 
 
 ### API Gateway
 
-...
+Este componente concentra os endpoints de API que os callbacks da Twilio utilizarão para enviar mensagens para o chatbot. Toda mensagem recebida na API WhatsApp da Twilio gera uma chamada à nossa API, que será hospedada no API Gateway, que atua como um ponto único de entrada para esses eventos. Adicionalmente, o API Gateway faz as proteções necessárias contra eventuais tentativas de ataques DDoS ou similares, além de fornecer todo o ferramental necessário para autenticação e controles de uso da API, atuando como um "Firewall de Aplicação (camada 7)" nesse contexto.
+
+As requisições recebidas na API são validadas e, caso estejam em conformidade, são encaminhadas de maneira distribuída para os nós ativos no cluster EC2 da aplicação Chatbot. Observe que, como o API Gateway já faz o trabalho de distribuição de requisições entre instâncias EC2 ativas no cluster a nível de aplicação/protocolo (HTTPS), não existe a necessidade de criar balanceadores de carga ELB (Enterprise Load-Balancers) para essa função, o que simplifica a arquitetura da solução.
 
 
 ### Aplicação Chatbot
 
-...
+Este é o componente central da solução, e possui a lógica principal do Chatbot. É uma aplicação escrita em Python, que utiliza Flask para expor os endpoints de API para interação com o Chatbot, e LangChain para criar a cadeia (chain) de comunicação do Chatbot, além de outras bibliotecas para interação com as APIs REST da Solubio e componentes AWS (S3, SageMaker e DynamoDB).
+
+Optamos por externalizar o modelo de IA generativa em um serviço dedicado a esse propósito (AWS SageMaker), que possui todos os recursos computacionais necessários, de maneira distribuída e consumida como serviço, para o funcionamento fluído do Chatbot. A utilização de um modelo local iria demandar alto poder de processamento nos nós do cluster EC2, o que tornaria a solução financeiramente inviável.
+
+#### Funcionamento
+
+Antes mesmo de entrar em funcionamento, o modelo de IA Generativa é cuidadosamente treinado com exemplos de prompts para todos os cenários previstos de atendimento, além de passar por um processo de enriquecimento de conhecimento via RAG (Retrieval Augmented Generation), a fim de garantir uma comunicação fluída e mais previsível, evitando ao máximo as conhecidas "alucinações" das aplicações de IA Generativa mais genéricas. A grosso modo, é assim que daremos "alma" à Dra Jô.
+
+No fluxo geral, para mensagens entrantes (inbound), ou seja, enviadas pelos clientes via WhatsApp/Twilio, a plataforma da Twilio gera um evento (callback) em formato de requisição REST para o API Gateway, que encaminha a requisição para um dos nós da aplicação Chatbot. Ao receber essa requisição, o Chatbot consulta o banco de dados (DynamoDB) em busca de informações anteriores que possam dar contexto à essa conversa, permitindo assim que as conversas tenham continuidade mesmo que as requisições de mensagens sejam distribuídas entre os nós do cluster.
+
+A cadeia (chain) é inicializada no LangChain (com ou sem contexto prévio), e a mensagem do cliente é então formatada e enviada para o modelo, no AWS SageMaker, para processamento. Ao receber uma resposta, a aplicação utiliza o encadeamento (chaining) necessário via LangChain para formatar uma resposta para o cliente, e salva todo o histórico no banco a cada mensagem trocada.
+
+Em alguns casos, para que seja possível formatar uma resposta adequada para o usuário (Ex: "emissão de boleto"), após a inteligência do modelo identificar a intenção do cliente, a aplicação de Chatbot fará uma requisição na API REST da Solubio a fim de obter as informações necessárias, e ao receber uma resposta da API, utiliza as informações para formatar uma mensagem de resposta para o usuário, com base nesses dados. Adicionalmente, a aplicação Chatbot será programada para tratar eventuais erros (Ex: problema ao acessar a API REST da Solubio) e dar um retorno adequado ao usuário.
+
+Em situações onde o Chatbot precisar enviar arquivos inteiros (como documentos PDF), será utilizado o AWS S3 para obter o arquivo previamente adicionado no repositório, e o mesmo é anexado na resposta.
+
+Para envios ativos, onde o Chatbot inicia a conversa, consideramos que a Solubio fará uma chamada via API à Solução de Chatbot, que enviará a mensagem de acordo com os parâmetros fornecidos. Futuramente, é possível implementar a funcionalidade de carga de listas de envio diretamente na plataforma, mas optamos por não incluir esse requisito por enquanto, visto que a Solubio não demonstrou interesse na funcionalidade, e há muito mais valor agregado no envio pontual de mensagens (que ocorrem em eventos específicos, como uma atualização de status de entrega de um produto). 
+
+#### Modelo de Escalabilidade
+
+Optamos por utilizar um cluster EC2, com o recurso de ASG (Auto-Scaling Group) configurado, de forma que os nós do cluster são automaticamente provisionados e de-provisionados de acordo com a demanda momentânea do cluster, a fim de garantir escalabilidade em momentos de pico de requisição, ao mesmo tempo que economiza recursos ao reduzir a quantidade de nós ativos em momentos de baixa demanda.
+
+Para evitar que eventuais problemas de configuração ou picos de requisição muito além do esperado, além dos mecanismos de segurança que existem no API Gateway, o cluster EC2 também será configurado com um limite máximo de recursos, evitando assim que altos custos inesperados com infraestrutura de nuvem ocorram. 
 
 
 ### AWS S3
 
-...
+Utilizaremos o AWS S3 como um repositório para documentos estáticos que poderão ser utilizados para treinamento (RAG) do modelo de IA ou para situações onde o Chatbot precise enviar arquivos estáticos para os usuários durante a troca de mensagens.
 
 
 ### AWS Sagemaker
 
-...
+O AWS SageMaker é um componente crítico da nossa solução, pois nele será hospedado o modelo de IA generativa (que identifica as intenções dos usuários com base nas mensagens enviadas e "gera" as respostas) e o modelo responsável por gerar as "embeddings" no processo conhecido como RAG, que fará a vetorização de documentos para aumentarmos o conhecimento da Dra Jô. 
+
+Um dos motivos de optarmos pelo SageMaker é o fato de ser uma ferramenta especializada na hospedagem e processamento de modelos de IA como serviço, possuindo todo o poderio computacional necessário para a tarefa. Conforme explicado acima, a execução local do modelo (diretamente nas instâncias EC2) inviabilizaria financeiramente a solução, devido à necessidade de alto poder de processamento.
+
+Outro motivo importante é que a externalização do modelo nos permite trocar de modelo facilmente, permitindo otimizar a solução com modelos que melhor atendam os requisitos futuramente. Utilizaremos o modelo open source `llama3.1`, inicialmente, pelo seu baixo custo e um bom desempenho para essa tarefa. 
 
 
 ### AWS DynamoDB
 
-...
+Este é o banco de dados da solução, responsável por armazenar todo o histórico de mensagens trocadas, metadados e os vetores utilizados pelo modelo de IA para a execução de fluxos RAG.
+
+Optamos pelo DynamoDB por ser uma solução totalmente serverless, que acompanha a evolução da solução e não exige muita gestão, se comparado a um banco de dados relacional convencional no RDS. Além disso, o DynamoDB escala automaticamente conforme a demanda, alinhando com a proposta de escalabilidade do restante da solução.
 
 
 ### NAT Gateways
 
-...
+A função dos NAT Gateways é fornecer um ponto de saída para a Internet que alguns serviços possam utilizar, sem que haja a necessidade de alocação de IPs "Públicos" para estes componentes. Por exemplo, as próprias instâncias EC2 da Aplicação de Chatbot estão em uma VPC Privada na AWS, e não possuem endereços públicos de IP. Desta forma, sempre que a aplicação necessitar acessar à Internet, será utilizada uma rota que passe por um NAT Gateway.
+
+Existe efetivamente um único NAT Gateway na arquitetura proposta. Porém, para fins de clareza do desenho, optamos por incluir dois NAT Gateways conectando a estrutura à Internet. O primeiro deles garante que a aplicação Chatbot consiga se comunicar com a API WHatsApp da Twilio (OUTBOUND), enquanto o outro permite que a aplicação Chatbot acesse as APIS REST da Solubio via Internet.
+
+⚠️ **Importante:** Como ainda não tivemos a oportunidade de discutir detalhes de conectividade entre a infraestrutura AWS onde será hospedada a Aplicação e a infraestrutura onde será hospedada a API REST da Solubio, estamos considerando que essa comunicação se derá via Internet, utilizando protocolos de segurança adequados. Porém, esse desenho pode mudar futuramente, sem prejuízos de funcionamento para a aplicação Charbot.
 
 
 ### APIs REST Solubio
 
-...
-
+Todos os dados e serviços que a aplicação Chatbot precisar consumir ocorrerão por meio de uma API REST da Solubio, criando uma camada de abstração com os sistemas de linha de negócio da Solubio e o Chatbot.
 
 
 # Previsão de Custos
-....
 
+Esta seção contém o racional de cálculo e modelo de custo de cada componente. Para valores em dólar, utilizamos o fator de R$5,60 por dólar, para efeitos de conversão e simplificação do cálculo. Alguns seviços possuem um "free tier", mas que geralmente são temporários (apenas nos primeiros 12 meses), então decidimos não considerar essa variável nos cálculos.
 
+## Twilio
+
+A Twilio cobra pelas conversas e mensagens no WhatsApp da seguinte forma:
+
+* _Custo por Conversa_: Cada nova conversa (ou sessão de 24 horas) tem um custo fixo de $0,008. Dentro desta janela, várias mensagens podem ser trocadas.
+* _Custo por Mensagem_: Cada mensagem enviada ou recebida dentro de uma conversa tem um custo adicional de $0,005.
+
+Com uma taxa de câmbio de 5,6 (USD para BRL), os cálculos são feitos da seguinte forma:
+
+* _Cálculo do Custo das Conversas_:
+    * `Custo = Número de Conversas * $0,008 * Taxa de Câmbio`
+    * Aplicando os valores: 5000 \text{ conversas} \times 0,008 \times 5,6 = R$224,00
+    
+* Cálculo do Custo das Mensagens:
+    * Custo = Número Total de Mensagens * $0,005 * Taxa de Câmbio
+    * Aplicando os valores: 50000 \text{ mensagens} \times 0,005 \times 5,6 = R$1400,00
+    
+* Total Twilio: R$224,00 + R$1400,00 = R$1624,00
+
+## Estimativa total mensal
+
+R$ XXXX,XX
