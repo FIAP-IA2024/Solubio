@@ -31,7 +31,7 @@ Tendo isso posto, elencamos aqui os objetivos apresentados pela Solubio e o noss
 
 2. Nosso projeto, em ambiente acadêmico, utilizará ferramentas e tecnologias que podem ser diferentes das que eventualmente a Solubio decida utilizar em seu ambiente. Sendo assim, é importante mencionar que alterações no desenho da solução e estimativas de custos serão necessárias em uma eventual transição para o ambiente da Solubio.
 
-3. Como não foram disponibilizadas informações precisas de volumetria, estamos assumindo um volume médio de 200 mil mensagens por mês, sendo 100mil inbound e 100mil outbound.
+3. Como não foram disponibilizadas informações precisas de volumetria, estamos assumindo um volume médio de 50 mil mensagens por mês.
 
 4. Para efeitos de cálculos de estimativas de custos, foram considerados os valores publicamente listados em cada fornecedor, mas estes valores tendem a reduzir bastante em negociações contratuais ligadas a compromissos de consumo.
 
@@ -133,6 +133,42 @@ Todos os dados e serviços que a aplicação Chatbot precisar consumir ocorrerã
 
 Esta seção contém o racional de cálculo e modelo de custo de cada componente. Para valores em dólar, utilizamos o fator de R$5,60 por dólar, para efeitos de conversão e simplificação do cálculo. Alguns seviços possuem um "free tier", mas que geralmente são temporários (apenas nos primeiros 12 meses), então decidimos não considerar essa variável nos cálculos.
 
+Para facilitar o cálculo com parâmetros diferentes, incluímos no repositório uma calculadora em python, que calcula automaticamente as estimativas de acordo com as entradas:
+
+```
+$ python calculator.py
+Estimação de Custos da Solução de Chatbot (Região: São Paulo - AWS sa-east-1)
+Informe a taxa de câmbio atual (USD para BRL): 5.6
+Número de conversas (24 horas cada): 5000
+Número total de mensagens trocadas: 50000
+Número de chamadas na API Gateway: 6000
+Horas de uso de instância EC2: 1000
+Armazenamento em S3 (GB): 2
+Unidades de leitura/escrita DynamoDB: 4
+Horas de uso do SageMaker: 200
+Transferência de dados via NAT Gateway (GB): 5
+
+*** Estimativa de Custos Detalhada ***
+
+--- Custos Twilio ---
+Twilio (Custo por Conversas): R$224.00 (Conversas: 5000 * Custo por conversa: R$0.0448)
+Twilio (Custo por Mensagens): R$1400.00 (Total de mensagens: 50000 * Custo por mensagem: R$0.0280)
+Total Twilio: R$1624.00
+
+--- Custos AWS ---
+API Gateway: R$0.17 (Chamadas API: 6000 * Custo por chamada: R$0.000028)
+EC2 (Instâncias): R$840.00 (Horas EC2: 1000.0 * Custo por hora: R$0.84)
+S3 (Armazenamento): R$0.45 (Armazenamento S3: 2.0 GB * Custo por GB: R$0.22)
+DynamoDB: R$0.07 (Unidades de leitura/escrita: 4 * Custo por unidade: R$0.017)
+SageMaker: R$14560.00 (Horas SageMaker: 200.0 * Custo por hora: R$72.80)
+NAT Gateway: R$1.96 (Transferência NAT: 5.0 GB * Custo por GB: R$0.39)
+Total AWS: R$15402.64
+
+*** Custo Total da Solução ***
+Custo Total: R$17026.64
+
+```
+
 ## Twilio
 
 A Twilio cobra pelas conversas e mensagens no WhatsApp da seguinte forma:
@@ -152,6 +188,54 @@ Com uma taxa de câmbio de 5,6 (USD para BRL), os cálculos são feitos da segui
     
 * Total Twilio: R$224,00 + R$1400,00 = R$1624,00
 
-## Estimativa total mensal
+## AWS API Gateway
 
-R$ XXXX,XX
+O API Gateway da AWS cobra por número de chamadas de API. Neste contexto, o API Gateway processa as requisições que chegam ao chatbot, redirecionando as mensagens para a aplicação.
+
+* _Custo por chamada de API_: $0,000005 ajustado para R$0,000028 com a taxa de câmbio de 5,6.
+* _Fórmula de Cálculo_:
+    * `Custo = Número de Chamadas * Custo por Chamada`
+    * _Aplicando os valores_: 6000 chamadas * 0,000028 = R$0,17
+
+## AWS S3 (Armazenamento)
+
+O Amazon S3 é utilizado para armazenar documentos e arquivos necessários para o funcionamento do chatbot, como PDFs ou outros arquivos que o chatbot pode enviar aos usuários.
+
+* _Custo por GB armazenado_: $0,04 ajustado para R$0,22 com a taxa de câmbio de 5,6.
+* _Fórmula de Cálculo_:
+    * `Custo = Armazenamento em GB * Custo por GB`
+    * Aplicando os valores: 2 GB * 0,22 = R$0,45
+
+## AWS DynamoDB (Banco de Dados)
+
+O DynamoDB armazena dados estruturados, como histórico de conversas e informações contextuais para o chatbot. A cobrança do DynamoDB é baseada nas unidades de leitura e escrita consumidas.
+
+* _Custo por unidade de leitura/escrita_: $0,003 ajustado para R$0,017 com a taxa de câmbio de 5,6.
+* _Fórmula de Cálculo_:
+    * `Custo = Unidades de Leitura/Escrita * Custo por Unidade`
+    * Aplicando os valores: 4 unidades * 0,017 = R$0,07
+
+## AWS SageMaker (Modelo de IA)
+
+O AWS SageMaker hospeda o modelo de IA que processa as mensagens e gera respostas. A cobrança do SageMaker é baseada nas horas de uso.
+
+* _Custo por hora de uso_: $13,00 ajustado para R$72,80 com a taxa de câmbio de 5,6.
+* _Fórmula de Cálculo_:
+    * `Custo = Horas de Uso * Custo por Hora`
+    * _Aplicando os valores_: 200 horas * 72,80 = R$14560,00
+
+## AWS NAT Gateway
+
+O NAT Gateway permite que instâncias privadas na VPC (Rede Virtual Privada) acessem a Internet de forma segura. A cobrança do NAT Gateway é baseada na quantidade de dados transferidos através dele.
+
+* _Custo por GB transferido_: $0,07 ajustado para R$0,39 com a taxa de câmbio de 5,6.
+* _Fórmula de Cálculo_:
+    * `Custo = Transferência em GB * Custo por GB`
+    * _Aplicando os valores_: 5 GB * 0,39 = R$1,96
+
+## Resumo final dos custos
+
+* Total Twilio: R$1624,00
+* Total AWS: R$15402,64
+* Custo Total da Solução: R$17026,64
+
