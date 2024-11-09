@@ -1,5 +1,15 @@
 # Solução de Chatbot Inteligente - Solubio
 
+## Membros do Grupo 35
+
+* Jose Antonio Correa Junior (RM 559800)
+* Gabriel de Oliveira Soares Ribeiro (RM 560173)
+* Marcos de Souza Trazzini (RM 559926)
+* Jonas Felipe dos Santos Lima (RM 560461)
+* Edimilson Ribeiro da Silva (RM 559645)
+
+## Desenho da Arquitetura da Solução
+
 ![Desenho da Arquitetura da Solução](Arquitetura_Chatbot_v1.png)
 
 ## Sobre a Arquitetura
